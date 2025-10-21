@@ -32,6 +32,7 @@ const HOTEL_CATEGORIES = ["Basic", "3 Star", "3 Star Plus", "4 Star", "5 Star"];
 
 const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
   const [formData, setFormData] = useState({
+    tripId: "",
     travellerName: "",
     phone: "",
     email: "",
@@ -57,7 +58,7 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
       const sheetsService = new GoogleSheetsBackendService();
       
       await sheetsService.appendLead({
-        tripId: `TRIP-${Date.now()}`,
+        tripId: formData.tripId,
         date: new Date().toISOString().split('T')[0],
         consultant: session?.user.name || '',
         status: formData.status,
@@ -104,6 +105,15 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label>Trip ID</Label>
+            <Input
+              value={formData.tripId}
+              onChange={(e) => setFormData({ ...formData, tripId: e.target.value })}
+              placeholder="Enter Trip ID"
+            />
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Traveller Name *</Label>

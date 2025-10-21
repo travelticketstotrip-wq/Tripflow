@@ -10,9 +10,6 @@ import AddLeadDialog from "./AddLeadDialog";
 import LeadFilters from "./LeadFilters";
 import SearchBar from "./SearchBar";
 import DashboardStats from "./DashboardStats";
-import ConversionFunnelChart from "./ConversionFunnelChart";
-import StatusDistributionChart from "./StatusDistributionChart";
-import ConsultantPerformanceChart from "./ConsultantPerformanceChart";
 import KeyMetricsCards from "./KeyMetricsCards";
 
 const AdminDashboard = () => {
@@ -196,12 +193,7 @@ const AdminDashboard = () => {
 
         <TabsContent value="dashboard" className="space-y-6">
           <DashboardStats leads={leads} />
-          <KeyMetricsCards leads={leads} />
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <ConversionFunnelChart leads={leads} />
-            <StatusDistributionChart leads={leads} />
-          </div>
-          <ConsultantPerformanceChart leads={leads} />
+          <KeyMetricsCards leads={filteredLeads} />
           <div className="mt-6">
             <h3 className="text-lg font-semibold mb-4">All Leads</h3>
             {renderLeadGrid(filteredLeads)}
