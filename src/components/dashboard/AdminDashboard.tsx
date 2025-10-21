@@ -10,6 +10,10 @@ import AddLeadDialog from "./AddLeadDialog";
 import LeadFilters from "./LeadFilters";
 import SearchBar from "./SearchBar";
 import DashboardStats from "./DashboardStats";
+import ConversionFunnelChart from "./ConversionFunnelChart";
+import StatusDistributionChart from "./StatusDistributionChart";
+import ConsultantPerformanceChart from "./ConsultantPerformanceChart";
+import KeyMetricsCards from "./KeyMetricsCards";
 
 const AdminDashboard = () => {
   const [leads, setLeads] = useState<SheetLead[]>([]);
@@ -190,9 +194,18 @@ const AdminDashboard = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="dashboard" className="space-y-4">
+        <TabsContent value="dashboard" className="space-y-6">
           <DashboardStats leads={leads} />
-          {renderLeadGrid(filteredLeads)}
+          <KeyMetricsCards leads={leads} />
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <ConversionFunnelChart leads={leads} />
+            <StatusDistributionChart leads={leads} />
+          </div>
+          <ConsultantPerformanceChart leads={leads} />
+          <div className="mt-6">
+            <h3 className="text-lg font-semibold mb-4">All Leads</h3>
+            {renderLeadGrid(filteredLeads)}
+          </div>
         </TabsContent>
 
         <TabsContent value="new">

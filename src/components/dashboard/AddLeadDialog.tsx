@@ -8,6 +8,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { GoogleSheetsBackendService } from "@/lib/googleSheetsBackend";
 import { authLib } from "@/lib/auth";
+import AddLeadErrorDialog from "./AddLeadErrorDialog";
 
 interface AddLeadDialogProps {
   open: boolean;
@@ -44,6 +45,7 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
     remarks: "",
   });
   const [saving, setSaving] = useState(false);
+  const [showProtectionError, setShowProtectionError] = useState(false);
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -79,11 +81,16 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
       onSuccess();
       onClose();
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error adding lead",
-        description: error.message,
-      });
+      // Check if it's a protection error
+      if (error.message && error.message.includes('protected')) {
+        setShowProtectionError(true);
+      } else {
+        toast({
+          variant: "destructive",
+          title: "Error adding lead",
+          description: error.message,
+        });
+      }
     } finally {
       setSaving(false);
     }
@@ -225,6 +232,13 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
           </div>
         </form>
       </DialogContent>
+      <AddLeadErrorDialog 
+        open={showProtectionError} 
+        onClose={() => {
+          setShowProtectionError(false);
+          onClose();
+        }} 
+      />
     </Dialog>
   );
 };
