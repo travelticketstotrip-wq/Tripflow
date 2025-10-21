@@ -22,30 +22,45 @@ interface Lead {
 }
 
 async function getAccessToken(credentials: any): Promise<string> {
-  const jwtHeader = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  // Base64URL helpers for JWT
+  const base64urlEncode = (str: string) => {
+    const bytes = new TextEncoder().encode(str);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+  };
+  const base64urlFromArrayBuffer = (buffer: ArrayBuffer) => {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/,'');
+  };
+
   const now = Math.floor(Date.now() / 1000);
-  const jwtClaimSet = btoa(JSON.stringify({
+  const header = base64urlEncode(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+  const payload = base64urlEncode(JSON.stringify({
     iss: credentials.client_email,
     scope: 'https://www.googleapis.com/auth/spreadsheets',
     aud: 'https://oauth2.googleapis.com/token',
     exp: now + 3600,
     iat: now,
   }));
+  const unsigned = `${header}.${payload}`;
 
-  const privateKey = credentials.private_key.replace(/-----BEGIN PRIVATE KEY-----|\n|-----END PRIVATE KEY-----/g, '');
-  const jwtSignature = await crypto.subtle.sign(
-    'RSASSA-PKCS1-v1_5',
-    await crypto.subtle.importKey(
-      'pkcs8',
-      Uint8Array.from(atob(privateKey), c => c.charCodeAt(0)),
-      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-      false,
-      ['sign']
-    ),
-    new TextEncoder().encode(`${jwtHeader}.${jwtClaimSet}`)
+  const pem = credentials.private_key as string;
+  const base64 = pem.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\n/g, '');
+  const keyData = Uint8Array.from(atob(base64), c => c.charCodeAt(0));
+
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    keyData,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
   );
 
-  const jwt = `${jwtHeader}.${jwtClaimSet}.${btoa(String.fromCharCode(...new Uint8Array(jwtSignature)))}`;
+  const sig = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(unsigned));
+  const jwt = `${unsigned}.${base64urlFromArrayBuffer(sig)}`;
 
   const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
     method: 'POST',
