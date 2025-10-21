@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     console.log('Fetching leads from Google Sheets...');
     
     const serviceAccountJson = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_JSON');
-    const sheetUrl = Deno.env.get('GOOGLE_SHEETS_URL');
+    const sheetUrl = Deno.env.get('GOOGLE_SHEET_URL');
     
     if (!serviceAccountJson || !sheetUrl) {
       throw new Error('Missing Google Sheets credentials');
