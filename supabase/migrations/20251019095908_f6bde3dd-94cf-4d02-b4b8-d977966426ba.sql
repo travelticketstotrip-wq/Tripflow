@@ -1,0 +1,20 @@
+-- Update lead_status enum to include all new status values
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'unfollowed';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'follow_up_calls';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'working_on_it';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'proposal_1_shared';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'proposal_2_shared';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'proposal_3_shared';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'negotiations';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'hot_leads';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'booked_with_us';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'cancellations';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'postponed';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'booked_outside';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'pamplets_shared';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'follow_up_calls_1';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'follow_up_calls_2';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'follow_up_calls_3';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'follow_up_calls_4';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'follow_up_calls_5';
+ALTER TYPE lead_status ADD VALUE IF NOT EXISTS 'whatsapp_sent';
