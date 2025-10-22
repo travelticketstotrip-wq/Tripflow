@@ -42,12 +42,6 @@ const ConsultantDashboard = () => {
       });
 
       const data = await sheetsService.fetchLeads();
-      const myLeads = data.filter(l => l.consultant?.toLowerCase() === session?.user.name?.toLowerCase());
-      setLeads(myLeads);
-    try {
-      if (!silent) setLoading(true);
-      
-      const data = await sheetsService.current.fetchLeads();
       
       // Filter leads assigned to this consultant
       const myLeads = data.filter(lead => 

@@ -31,8 +31,20 @@ const AdminDashboard = () => {
     try {
       if (!silent) setLoading(true);
       
-      const data = await sheetsService.current.fetchLeads();
-      setLeads(data); // Already sorted by date descending in backend
+      const credentials = await secureStorage.getCredentials();
+      if (!credentials) {
+        throw new Error('Google Sheets not configured');
+      }
+
+      const sheetsService = new GoogleSheetsService({
+        apiKey: credentials.googleApiKey || '',
+        sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
+        worksheetNames: credentials.worksheetNames,
+        columnMappings: credentials.columnMappings
+      });
+
+      const data = await sheetsService.fetchLeads();
+      setLeads(data);
       
       if (silent) {
         console.log('Background sync completed');

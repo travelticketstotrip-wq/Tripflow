@@ -55,11 +55,22 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
     setSaving(true);
 
     try {
-      const session = authLib.getSession();
-      const sheetsService = new GoogleSheetsBackendService();
+      const session = authService.getSession();
+      
+      const credentials = await secureStorage.getCredentials();
+      if (!credentials) {
+        throw new Error('Google Sheets not configured. Please setup in Settings.');
+      }
+
+      const sheetsService = new GoogleSheetsService({
+        apiKey: credentials.googleApiKey || '',
+        sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
+        worksheetNames: credentials.worksheetNames,
+        columnMappings: credentials.columnMappings
+      });
       
       await sheetsService.appendLead({
-        tripId: formData.tripId,
+        // No tripId - column A stays empty for new leads
         date: new Date().toISOString().split('T')[0],
         consultant: session?.user.name || '',
         status: formData.status,
@@ -73,7 +84,7 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
         mealPlan: formData.mealPlan,
         phone: formData.phone,
         email: formData.email,
-      });
+      } as any);
 
       toast({
         title: "Lead added successfully",
