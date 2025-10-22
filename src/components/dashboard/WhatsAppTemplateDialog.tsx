@@ -6,7 +6,7 @@ import { useState } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import { whatsappTemplates, formatTemplate, type WhatsAppTemplate } from "@/lib/whatsappTemplates";
 import { SheetLead } from "@/lib/googleSheets";
-import { authLib } from "@/lib/auth";
+import { authService } from "@/lib/authService";
 
 interface WhatsAppTemplateDialogProps {
   open: boolean;
@@ -17,7 +17,7 @@ interface WhatsAppTemplateDialogProps {
 const WhatsAppTemplateDialog = ({ open, onClose, lead }: WhatsAppTemplateDialogProps) => {
   const [selectedTemplate, setSelectedTemplate] = useState<WhatsAppTemplate | null>(null);
   const [customMessage, setCustomMessage] = useState("");
-  const session = authLib.getSession();
+  const session = authService.getSession();
 
   const getTemplateVariables = () => ({
     customerName: lead.travellerName,

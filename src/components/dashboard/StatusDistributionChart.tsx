@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SheetLead } from "@/lib/googleSheetsBackend";
+import { SheetLead } from "@/lib/googleSheets";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 
 interface StatusDistributionChartProps {

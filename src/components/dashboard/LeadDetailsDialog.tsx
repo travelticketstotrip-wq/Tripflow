@@ -6,7 +6,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { GoogleSheetsBackendService, SheetLead } from "@/lib/googleSheetsBackend";
+import { GoogleSheetsService, SheetLead } from "@/lib/googleSheets";
+import { secureStorage } from "@/lib/secureStorage";
 import { Bell } from "lucide-react";
 import ReminderDialog from "./ReminderDialog";
 
@@ -51,7 +52,16 @@ const LeadDetailsDialog = ({ lead, open, onClose, onUpdate }: LeadDetailsDialogP
     try {
       setSaving(true);
       
-      const sheetsService = new GoogleSheetsBackendService();
+      const credentials = await secureStorage.getCredentials();
+      if (!credentials) throw new Error('Google Sheets not configured');
+
+      const sheetsService = new GoogleSheetsService({
+        apiKey: credentials.googleApiKey || '',
+        sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
+        worksheetNames: credentials.worksheetNames,
+        columnMappings: credentials.columnMappings
+      });
+
       await sheetsService.updateLead(lead.tripId, formData);
 
       toast({

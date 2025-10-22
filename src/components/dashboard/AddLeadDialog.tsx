@@ -6,8 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { GoogleSheetsBackendService } from "@/lib/googleSheetsBackend";
-import { authLib } from "@/lib/auth";
+import { GoogleSheetsService, SheetLead } from "@/lib/googleSheets";
+import { authService } from "@/lib/authService";
+import { secureStorage } from "@/lib/secureStorage";
 import AddLeadErrorDialog from "./AddLeadErrorDialog";
 
 interface AddLeadDialogProps {
@@ -105,15 +106,6 @@ const AddLeadDialog = ({ open, onClose, onSuccess }: AddLeadDialogProps) => {
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Trip ID</Label>
-            <Input
-              value={formData.tripId}
-              onChange={(e) => setFormData({ ...formData, tripId: e.target.value })}
-              placeholder="Enter Trip ID"
-            />
-          </div>
-
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Traveller Name *</Label>

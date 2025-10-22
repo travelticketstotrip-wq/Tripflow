@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { GoogleSheetsBackendService, SheetLead } from "@/lib/googleSheetsBackend";
+import { GoogleSheetsService, SheetLead } from "@/lib/googleSheets";
+import { secureStorage } from "@/lib/secureStorage";
 import { LeadCard } from "./LeadCard";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus } from "lucide-react";
@@ -24,7 +25,7 @@ const AdminDashboard = () => {
   const [consultantFilter, setConsultantFilter] = useState("All Consultants");
   const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
-  const sheetsService = useRef(new GoogleSheetsBackendService());
+  const sheetsServiceRef = useRef<GoogleSheetsService | null>(null);
 
   const fetchLeads = async (silent = false) => {
     try {

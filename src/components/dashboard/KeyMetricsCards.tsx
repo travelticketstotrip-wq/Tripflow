@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SheetLead } from "@/lib/googleSheetsBackend";
+import { SheetLead } from "@/lib/googleSheets";
 import { TrendingUp, Target, AlertCircle, Trophy } from "lucide-react";
 
 interface KeyMetricsCardsProps {

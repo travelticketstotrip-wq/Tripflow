@@ -4,21 +4,29 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Settings } from "lucide-react";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
 import ConsultantDashboard from "@/components/dashboard/ConsultantDashboard";
-import { authLib } from "@/lib/auth";
+import { authService } from "@/lib/authService";
+import { themeService } from "@/lib/themeService";
+import { Moon, Sun } from "lucide-react";
 
 const Dashboard = () => {
-  const [session, setSession] = useState(authLib.getSession());
+  const [session, setSession] = useState(authService.getSession());
+  const [theme, setTheme] = useState(themeService.getTheme());
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!authLib.isAuthenticated()) {
+    if (!authService.isAuthenticated()) {
       navigate('/auth');
     }
   }, [navigate]);
 
   const handleLogout = async () => {
-    await authLib.logout();
+    await authService.logout();
     navigate('/auth');
+  };
+
+  const handleToggleTheme = async () => {
+    const newTheme = await themeService.toggleTheme();
+    setTheme(newTheme);
   };
 
   if (!session) {
@@ -39,6 +47,13 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleToggleTheme}
+              >
+                {theme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
               {session.user.role === 'admin' && (
                 <Button
                   variant="outline"

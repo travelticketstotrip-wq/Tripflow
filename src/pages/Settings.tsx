@@ -3,19 +3,19 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Save } from "lucide-react";
-import { saveSettings, loadSettings, extractSheetId, type GoogleSheetsConfig } from "@/lib/googleSheets";
+import { Save, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { authLib } from "@/lib/auth";
+import { authService } from "@/lib/authService";
+import { secureStorage, SecureCredentials } from "@/lib/secureStorage";
 
 const Settings = () => {
-  const [apiKey, setApiKey] = useState("");
+  const [googleApiKey, setGoogleApiKey] = useState("");
+  const [googleServiceAccountJson, setGoogleServiceAccountJson] = useState("");
   const [sheetUrl, setSheetUrl] = useState("");
-  const [sheetId, setSheetId] = useState("");
   const [worksheetNames, setWorksheetNames] = useState<string[]>(["MASTER DATA", "BACKEND SHEET"]);
   const [columnMappings, setColumnMappings] = useState<Record<string, string>>({
-    trip_id: "A",
     date: "B",
     consultant: "C",
     status: "D",
@@ -28,40 +28,58 @@ const Settings = () => {
     hotel_category: "N",
     meal_plan: "O",
     phone: "P",
-    email: "Q"
+    email: "Q",
+    priority: "R"
   });
+  const [paymentLinks, setPaymentLinks] = useState<{ name: string; url: string; qrImage?: string }[]>([
+    { name: "Primary Payment", url: "", qrImage: "" }
+  ]);
   const { toast } = useToast();
   const navigate = useNavigate();
 
   useEffect(() => {
-    const session = authLib.getSession();
+    const session = authService.getSession();
     if (!session || session.user.role !== 'admin') {
       navigate('/dashboard');
       return;
     }
 
-    const config = loadSettings();
-    if (config) {
-      setApiKey(config.apiKey);
-      setSheetUrl(`https://docs.google.com/spreadsheets/d/${config.sheetId}`);
-      setSheetId(config.sheetId);
-      setWorksheetNames(config.worksheetNames);
-      setColumnMappings(config.columnMappings);
-    }
+    loadCredentials();
   }, [navigate]);
 
-  const handleSave = () => {
-    if (!apiKey || !sheetUrl) {
+  const loadCredentials = async () => {
+    const credentials = await secureStorage.getCredentials();
+    if (credentials) {
+      setGoogleApiKey(credentials.googleApiKey || "");
+      setGoogleServiceAccountJson(credentials.googleServiceAccountJson || "");
+      setSheetUrl(credentials.googleSheetUrl || "");
+      setWorksheetNames(credentials.worksheetNames || ["MASTER DATA", "BACKEND SHEET"]);
+      setColumnMappings(credentials.columnMappings || columnMappings);
+      setPaymentLinks(credentials.paymentLinks || paymentLinks);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!sheetUrl) {
       toast({
         variant: "destructive",
         title: "Missing configuration",
-        description: "Please provide Google API Key and Sheet URL",
+        description: "Please provide Google Sheet URL",
       });
       return;
     }
 
-    const extractedId = extractSheetId(sheetUrl);
-    if (!extractedId) {
+    if (!googleApiKey && !googleServiceAccountJson) {
+      toast({
+        variant: "destructive",
+        title: "Missing credentials",
+        description: "Please provide either Google API Key or Service Account JSON",
+      });
+      return;
+    }
+
+    const sheetIdMatch = sheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    if (!sheetIdMatch) {
       toast({
         variant: "destructive",
         title: "Invalid Sheet URL",
@@ -70,20 +88,34 @@ const Settings = () => {
       return;
     }
 
-    const config: GoogleSheetsConfig = {
-      apiKey,
-      sheetId: extractedId,
+    const credentials: SecureCredentials = {
+      googleApiKey: googleApiKey || undefined,
+      googleServiceAccountJson: googleServiceAccountJson || undefined,
+      googleSheetUrl: sheetUrl,
       worksheetNames,
       columnMappings,
+      paymentLinks: paymentLinks.filter(p => p.url)
     };
 
-    saveSettings(config);
-    setSheetId(extractedId);
+    await secureStorage.saveCredentials(credentials);
 
     toast({
       title: "Settings saved",
-      description: "Google Sheets configuration has been saved successfully",
+      description: "Credentials stored securely on device",
     });
+  };
+
+  const handleFileUpload = (index: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const newPaymentLinks = [...paymentLinks];
+        newPaymentLinks[index].qrImage = e.target?.result as string;
+        setPaymentLinks(newPaymentLinks);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
@@ -94,7 +126,7 @@ const Settings = () => {
             Admin Settings
           </h1>
           <p className="text-muted-foreground mt-2">
-            Configure Google Sheets integration for authentication and data sync
+            Configure Google Sheets integration (stored securely on device)
           </p>
         </div>
 
@@ -102,46 +134,53 @@ const Settings = () => {
           <CardHeader>
             <CardTitle>Google Sheets Integration</CardTitle>
             <CardDescription>
-              Connect your Google Sheet for user authentication and lead management
+              Connect your Google Sheet for authentication and lead management
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="apiKey">Google API Key</Label>
-              <Input
-                id="apiKey"
-                type="password"
-                placeholder="AIza..."
-                value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Get your API key from Google Cloud Console → APIs & Services → Credentials
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="sheetUrl">Google Sheet URL</Label>
+              <Label htmlFor="sheetUrl">Google Sheet URL *</Label>
               <Input
                 id="sheetUrl"
                 placeholder="https://docs.google.com/spreadsheets/d/..."
                 value={sheetUrl}
-                onChange={(e) => {
-                  setSheetUrl(e.target.value);
-                  setSheetId(extractSheetId(e.target.value));
-                }}
+                onChange={(e) => setSheetUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
                 The URL of your Google Spreadsheet
               </p>
             </div>
 
-            {sheetId && (
-              <div className="space-y-2">
-                <Label>Sheet ID (Auto-extracted)</Label>
-                <Input value={sheetId} readOnly className="bg-muted" />
-              </div>
-            )}
+            <div className="space-y-2">
+              <Label htmlFor="apiKey">Google API Key (Option 1)</Label>
+              <Input
+                id="apiKey"
+                type="password"
+                placeholder="AIza..."
+                value={googleApiKey}
+                onChange={(e) => setGoogleApiKey(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Get from Google Cloud Console → APIs & Services → Credentials
+              </p>
+            </div>
+
+            <div className="text-center text-sm text-muted-foreground">OR</div>
+
+            <div className="space-y-2">
+              <Label htmlFor="serviceAccount">Google Service Account JSON (Option 2)</Label>
+              <Textarea
+                id="serviceAccount"
+                placeholder='{"type": "service_account", "project_id": "...", ...}'
+                value={googleServiceAccountJson}
+                onChange={(e) => setGoogleServiceAccountJson(e.target.value)}
+                rows={6}
+                className="font-mono text-xs"
+              />
+              <p className="text-xs text-muted-foreground">
+                Paste the entire JSON content from your service account file
+              </p>
+            </div>
           </CardContent>
         </Card>
 
@@ -172,7 +211,7 @@ const Settings = () => {
             ))}
 
             <div className="border-t pt-4 mt-4">
-              <h3 className="text-sm font-semibold mb-4">Column Mappings (for MASTER DATA sheet)</h3>
+              <h3 className="text-sm font-semibold mb-4">Column Mappings (MASTER DATA sheet - Column A is Trip ID)</h3>
               <div className="grid grid-cols-2 gap-4">
                 {Object.entries(columnMappings).map(([key, value]) => (
                   <div key={key} className="space-y-2">
@@ -183,7 +222,7 @@ const Settings = () => {
                       id={`col-${key}`}
                       value={value}
                       onChange={(e) => setColumnMappings({ ...columnMappings, [key]: e.target.value.toUpperCase() })}
-                      placeholder="A"
+                      placeholder="B"
                       className="text-center"
                       maxLength={2}
                     />
@@ -194,15 +233,75 @@ const Settings = () => {
           </CardContent>
         </Card>
 
+        <Card className="shadow-soft">
+          <CardHeader>
+            <CardTitle>Payment Configuration</CardTitle>
+            <CardDescription>
+              Configure payment links and QR codes for WhatsApp sending
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {paymentLinks.map((link, index) => (
+              <div key={index} className="border p-4 rounded-lg space-y-3">
+                <div className="space-y-2">
+                  <Label>Payment Link Name</Label>
+                  <Input
+                    value={link.name}
+                    onChange={(e) => {
+                      const newLinks = [...paymentLinks];
+                      newLinks[index].name = e.target.value;
+                      setPaymentLinks(newLinks);
+                    }}
+                    placeholder="Primary Payment"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Payment URL</Label>
+                  <Input
+                    value={link.url}
+                    onChange={(e) => {
+                      const newLinks = [...paymentLinks];
+                      newLinks[index].url = e.target.value;
+                      setPaymentLinks(newLinks);
+                    }}
+                    placeholder="https://..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>QR Code Image (Optional)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(index, e)}
+                    />
+                    {link.qrImage && (
+                      <img src={link.qrImage} alt="QR" className="h-10 w-10 object-cover rounded" />
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              onClick={() => setPaymentLinks([...paymentLinks, { name: "", url: "", qrImage: "" }])}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Add Payment Link
+            </Button>
+          </CardContent>
+        </Card>
+
         <div className="p-4 border rounded-lg bg-muted/50 text-xs text-muted-foreground">
           <p className="font-semibold mb-2">📌 Setup Instructions:</p>
           <ul className="list-disc ml-4 space-y-1">
-            <li>Create a Google Sheets API key in Google Cloud Console</li>
+            <li>Create a Google Sheets API key OR Service Account in Google Cloud Console</li>
             <li>Enable Google Sheets API for your project</li>
-            <li>Make sure your sheet has two worksheets: MASTER DATA and BACKEND SHEET</li>
+            <li>Sheet must have: MASTER DATA (leads) and BACKEND SHEET (users)</li>
             <li>BACKEND SHEET columns: C=Name, D=Email, E=Phone, M=Role, N=Password</li>
-            <li>MASTER DATA for leads with columns as configured above</li>
-            <li>Share your sheet with "Anyone with the link can view"</li>
+            <li>MASTER DATA: Column A=Trip ID (auto), then mapped columns as above</li>
+            <li>Share sheet: "Anyone with link can view" (for API key) or share with service account email</li>
+            <li>All credentials stored securely on device - not in code or cloud</li>
           </ul>
         </div>
 

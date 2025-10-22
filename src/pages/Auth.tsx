@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { authLib } from "@/lib/auth";
+import { authService } from "@/lib/authService";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
@@ -17,7 +17,7 @@ const Auth = () => {
 
   useEffect(() => {
     // Redirect if already logged in
-    if (authLib.isAuthenticated()) {
+    if (authService.isAuthenticated()) {
       navigate("/dashboard");
     }
   }, [navigate]);
@@ -27,7 +27,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { session, error } = await authLib.login(email, password);
+      const { session, error } = await authService.login(email, password);
       
       if (error || !session) {
         throw error || new Error("Login failed");
@@ -90,13 +90,13 @@ const Auth = () => {
             </Button>
           </form>
           <div className="mt-4 text-center text-sm text-muted-foreground space-y-2">
-            <p>Login credentials are synced from Google Sheets BACKEND SHEET</p>
-            <p className="text-xs">If you can't login, ask admin to run "Sync Now" in Settings</p>
+            <p>Login credentials from Google Sheets BACKEND SHEET</p>
+            <p className="text-xs">Configure Google Sheets in Settings after first login</p>
             <div className="mt-4 p-3 border border-primary/20 rounded-lg bg-primary/5">
               <p className="font-semibold text-primary">🔑 Default Admin Account</p>
               <p className="text-xs mt-1">Email: ticketstotrip.com@gmail.com</p>
               <p className="text-xs">Password: 123456</p>
-              <p className="text-xs mt-2 text-muted-foreground">Use this for initial setup before syncing users</p>
+              <p className="text-xs mt-2 text-muted-foreground">Use this to login and setup Google Sheets credentials</p>
             </div>
           </div>
         </CardContent>

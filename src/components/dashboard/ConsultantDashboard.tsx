@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { GoogleSheetsBackendService, SheetLead } from "@/lib/googleSheetsBackend";
-import { authLib } from "@/lib/auth";
+import { GoogleSheetsService, SheetLead } from "@/lib/googleSheets";
+import { authService } from "@/lib/authService";
+import { secureStorage } from "@/lib/secureStorage";
 import { LeadCard } from "./LeadCard";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Plus } from "lucide-react";
@@ -23,10 +24,26 @@ const ConsultantDashboard = () => {
   const [dateFilter, setDateFilter] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
   const { toast } = useToast();
-  const session = authLib.getSession();
-  const sheetsService = useRef(new GoogleSheetsBackendService());
+  const session = authService.getSession();
+  const sheetsServiceRef = useRef<GoogleSheetsService | null>(null);
 
   const fetchLeads = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      
+      const credentials = await secureStorage.getCredentials();
+      if (!credentials) throw new Error('Google Sheets not configured');
+
+      const sheetsService = new GoogleSheetsService({
+        apiKey: credentials.googleApiKey || '',
+        sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
+        worksheetNames: credentials.worksheetNames,
+        columnMappings: credentials.columnMappings
+      });
+
+      const data = await sheetsService.fetchLeads();
+      const myLeads = data.filter(l => l.consultant?.toLowerCase() === session?.user.name?.toLowerCase());
+      setLeads(myLeads);
     try {
       if (!silent) setLoading(true);
       

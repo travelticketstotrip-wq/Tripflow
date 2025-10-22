@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { SheetLead } from "@/lib/googleSheetsBackend";
+import { SheetLead } from "@/lib/googleSheets";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 interface ConversionFunnelChartProps {
