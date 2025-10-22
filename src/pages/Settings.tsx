@@ -73,7 +73,7 @@ const Settings = () => {
       toast({
         variant: "destructive",
         title: "Missing credentials",
-        description: "Please provide either Google API Key or Service Account JSON",
+        description: "Please provide at least Service Account JSON (required for add/update) or API Key (read-only)",
       });
       return;
     }
@@ -152,7 +152,7 @@ const Settings = () => {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="apiKey">Google API Key (Option 1)</Label>
+              <Label htmlFor="apiKey">Google API Key (Read-Only)</Label>
               <Input
                 id="apiKey"
                 type="password"
@@ -161,14 +161,14 @@ const Settings = () => {
                 onChange={(e) => setGoogleApiKey(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Get from Google Cloud Console → APIs & Services → Credentials
+                Optional: Only allows reading data. Get from Google Cloud Console → APIs & Services → Credentials
               </p>
             </div>
 
-            <div className="text-center text-sm text-muted-foreground">OR</div>
+            <div className="text-center text-sm text-muted-foreground font-semibold">AND/OR</div>
 
             <div className="space-y-2">
-              <Label htmlFor="serviceAccount">Google Service Account JSON (Option 2)</Label>
+              <Label htmlFor="serviceAccount">Google Service Account JSON (Required for Add/Update)</Label>
               <Textarea
                 id="serviceAccount"
                 placeholder='{"type": "service_account", "project_id": "...", ...}'
@@ -178,7 +178,7 @@ const Settings = () => {
                 className="font-mono text-xs"
               />
               <p className="text-xs text-muted-foreground">
-                Paste the entire JSON content from your service account file
+                Required for adding/updating leads. Paste the entire JSON from your service account file.
               </p>
             </div>
           </CardContent>
@@ -297,6 +297,7 @@ const Settings = () => {
           <ul className="list-disc ml-4 space-y-1">
             <li>Create a Google Sheets API key OR Service Account in Google Cloud Console</li>
             <li>Enable Google Sheets API for your project</li>
+            <li>Service Account JSON required for adding/updating leads; API Key only allows read access</li>
             <li>Sheet must have: MASTER DATA (leads) and BACKEND SHEET (users)</li>
             <li>BACKEND SHEET columns: C=Name, D=Email, E=Phone, M=Role, N=Password</li>
             <li>MASTER DATA: Column A=Trip ID (auto), then mapped columns as above</li>

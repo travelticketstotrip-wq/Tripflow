@@ -56,7 +56,8 @@ const LeadDetailsDialog = ({ lead, open, onClose, onUpdate }: LeadDetailsDialogP
       if (!credentials) throw new Error('Google Sheets not configured');
 
       const sheetsService = new GoogleSheetsService({
-        apiKey: credentials.googleApiKey || '',
+        apiKey: credentials.googleApiKey,
+        serviceAccountJson: credentials.googleServiceAccountJson,
         sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
         worksheetNames: credentials.worksheetNames,
         columnMappings: credentials.columnMappings

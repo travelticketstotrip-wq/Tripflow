@@ -1,6 +1,7 @@
 // Google Sheets API integration
 export interface GoogleSheetsConfig {
-  apiKey: string;
+  apiKey?: string;
+  serviceAccountJson?: string;
   sheetId: string;
   worksheetNames: string[];
   columnMappings: Record<string, string>;
@@ -37,9 +38,100 @@ const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 export class GoogleSheetsService {
   private config: GoogleSheetsConfig;
+  private accessToken: string | null = null;
+  private tokenExpiry: number = 0;
 
   constructor(config: GoogleSheetsConfig) {
     this.config = config;
+  }
+
+  private async getAccessToken(): Promise<string> {
+    if (this.accessToken && Date.now() < this.tokenExpiry) {
+      return this.accessToken;
+    }
+
+    if (!this.config.serviceAccountJson) {
+      throw new Error('Service Account JSON required for write operations. Please configure in Settings.');
+    }
+
+    try {
+      const serviceAccount = JSON.parse(this.config.serviceAccountJson);
+      const now = Math.floor(Date.now() / 1000);
+      const expiry = now + 3600;
+
+      // Create JWT header and payload
+      const header = {
+        alg: 'RS256',
+        typ: 'JWT',
+        kid: serviceAccount.private_key_id
+      };
+
+      const payload = {
+        iss: serviceAccount.client_email,
+        scope: 'https://www.googleapis.com/auth/spreadsheets',
+        aud: 'https://oauth2.googleapis.com/token',
+        exp: expiry,
+        iat: now
+      };
+
+      // Base64URL encode
+      const base64url = (str: string) => btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+      const headerEncoded = base64url(JSON.stringify(header));
+      const payloadEncoded = base64url(JSON.stringify(payload));
+      const unsignedToken = `${headerEncoded}.${payloadEncoded}`;
+
+      // Import private key and sign
+      const privateKey = serviceAccount.private_key;
+      const pemContents = privateKey
+        .replace('-----BEGIN PRIVATE KEY-----', '')
+        .replace('-----END PRIVATE KEY-----', '')
+        .replace(/\s/g, '');
+      
+      const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+      
+      const cryptoKey = await crypto.subtle.importKey(
+        'pkcs8',
+        binaryKey,
+        {
+          name: 'RSASSA-PKCS1-v1_5',
+          hash: 'SHA-256'
+        },
+        false,
+        ['sign']
+      );
+
+      const signature = await crypto.subtle.sign(
+        'RSASSA-PKCS1-v1_5',
+        cryptoKey,
+        new TextEncoder().encode(unsignedToken)
+      );
+
+      const signatureBase64 = base64url(String.fromCharCode(...new Uint8Array(signature)));
+      const jwt = `${unsignedToken}.${signatureBase64}`;
+
+      // Exchange JWT for access token
+      const response = await fetch('https://oauth2.googleapis.com/token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(`Failed to get access token: ${error}`);
+      }
+
+      const data = await response.json();
+      this.accessToken = data.access_token;
+      this.tokenExpiry = Date.now() + (data.expires_in * 1000) - 60000; // Refresh 1 min early
+
+      return this.accessToken;
+    } catch (error) {
+      console.error('Error getting access token:', error);
+      throw new Error('Failed to authenticate with Service Account. Please check your Service Account JSON in Settings.');
+    }
   }
 
   private columnToIndex(col: string): number {
@@ -54,9 +146,19 @@ export class GoogleSheetsService {
     try {
       const worksheetName = this.config.worksheetNames[1] || 'BACKEND SHEET';
       const range = `${worksheetName}!A2:Z1000`;
-      const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?key=${this.config.apiKey}`;
       
-      const response = await fetch(url);
+      let url: string;
+      let headers: Record<string, string> = {};
+      
+      if (this.config.apiKey) {
+        url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?key=${this.config.apiKey}`;
+      } else {
+        const token = await this.getAccessToken();
+        url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}`;
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(url, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch users: ${response.statusText}`);
       }
@@ -81,9 +183,19 @@ export class GoogleSheetsService {
     try {
       const worksheetName = this.config.worksheetNames[0] || 'MASTER DATA';
       const range = `${worksheetName}!A2:Z10000`;
-      const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?key=${this.config.apiKey}`;
       
-      const response = await fetch(url);
+      let url: string;
+      let headers: Record<string, string> = {};
+      
+      if (this.config.apiKey) {
+        url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?key=${this.config.apiKey}`;
+      } else {
+        const token = await this.getAccessToken();
+        url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}`;
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      
+      const response = await fetch(url, { headers });
       if (!response.ok) {
         throw new Error(`Failed to fetch leads: ${response.statusText}`);
       }
@@ -128,7 +240,10 @@ export class GoogleSheetsService {
     try {
       const worksheetName = this.config.worksheetNames[0] || 'MASTER DATA';
       const range = `${worksheetName}!A:Z`;
-      const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&key=${this.config.apiKey}`;
+      
+      // Write operations require Service Account authentication
+      const token = await this.getAccessToken();
+      const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED`;
       
       const cm = this.config.columnMappings;
       
@@ -164,6 +279,7 @@ export class GoogleSheetsService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           values: [row],
@@ -199,6 +315,7 @@ export class GoogleSheetsService {
       const worksheetName = this.config.worksheetNames[0] || 'MASTER DATA';
       
       const cm = this.config.columnMappings;
+      const token = await this.getAccessToken();
       
       console.log('Found lead at row:', rowNumber);
       
@@ -222,7 +339,7 @@ export class GoogleSheetsService {
           }
           
           const range = `${worksheetName}!${column}${rowNumber}`;
-          const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${this.config.apiKey}`;
+          const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
           
           console.log(`Updating ${key} at ${range}`);
           
@@ -230,6 +347,7 @@ export class GoogleSheetsService {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
               values: [[value]],
