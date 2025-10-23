@@ -1,5 +1,6 @@
 // Secure credential storage for mobile and web
 import { Preferences } from '@capacitor/preferences';
+import { localSecrets, areSecretsConfigured } from '@/config/localSecrets';
 
 const ENCRYPTION_KEY_STORAGE = 'app_encryption_key';
 const CREDENTIALS_STORAGE = 'secure_credentials';
@@ -46,6 +47,20 @@ export const secureStorage = {
 
   async getCredentials(): Promise<SecureCredentials | null> {
     try {
+      // First check if local secrets are configured
+      if (areSecretsConfigured()) {
+        const sheetIdMatch = localSecrets.spreadsheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+        return {
+          googleApiKey: localSecrets.googleApiKey !== "YOUR_GOOGLE_API_KEY_HERE" ? localSecrets.googleApiKey : undefined,
+          googleServiceAccountJson: localSecrets.serviceAccountJson.includes("YOUR_") ? undefined : localSecrets.serviceAccountJson,
+          googleSheetUrl: localSecrets.spreadsheetUrl,
+          worksheetNames: localSecrets.worksheetNames,
+          columnMappings: localSecrets.columnMappings,
+          paymentLinks: localSecrets.paymentLinks
+        };
+      }
+      
+      // Fallback to stored credentials
       const { value } = await Preferences.get({ key: CREDENTIALS_STORAGE });
       if (!value) return null;
       
