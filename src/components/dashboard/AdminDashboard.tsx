@@ -8,6 +8,7 @@ import { RefreshCw, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import LeadDetailsDialog from "./LeadDetailsDialog";
 import AddLeadDialog from "./AddLeadDialog";
+import AssignLeadDialog from "./AssignLeadDialog";
 import LeadFilters from "./LeadFilters";
 import SearchBar from "./SearchBar";
 import DashboardStats from "./DashboardStats";
@@ -18,6 +19,7 @@ const AdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [selectedLead, setSelectedLead] = useState<SheetLead | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [leadToAssign, setLeadToAssign] = useState<SheetLead | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("All Statuses");
   const [priorityFilter, setPriorityFilter] = useState("All Priorities");
@@ -148,7 +150,9 @@ const AdminDashboard = () => {
           <LeadCard 
             key={`${lead.tripId}-${index}`} 
             lead={lead} 
-            onClick={() => setSelectedLead(lead)} 
+            onClick={() => setSelectedLead(lead)}
+            onAssign={() => setLeadToAssign(lead)}
+            showAssignButton={true}
           />
         ))}
       </div>
@@ -240,6 +244,16 @@ const AdminDashboard = () => {
         <AddLeadDialog
           open={showAddDialog}
           onClose={() => setShowAddDialog(false)}
+          onSuccess={fetchLeads}
+        />
+      )}
+
+      {leadToAssign && (
+        <AssignLeadDialog
+          open={!!leadToAssign}
+          onClose={() => setLeadToAssign(null)}
+          lead={leadToAssign}
+          consultants={consultants}
           onSuccess={fetchLeads}
         />
       )}

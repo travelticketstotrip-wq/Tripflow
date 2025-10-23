@@ -9,6 +9,8 @@ import WhatsAppTemplateDialog from "./WhatsAppTemplateDialog";
 interface LeadCardProps {
   lead: SheetLead;
   onClick: () => void;
+  onAssign?: () => void;
+  showAssignButton?: boolean;
 }
 
 const getCardBackgroundByStatus = (status: string, priority: string) => {
@@ -66,7 +68,7 @@ const getStatusColor = (status: string): string => {
   return 'bg-gray-500';
 };
 
-export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
+export const LeadCard = ({ lead, onClick, onAssign, showAssignButton = false }: LeadCardProps) => {
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
   const priority = lead.priority?.toLowerCase() || 'medium';
   const progress = getStatusProgress(lead.status);
@@ -85,6 +87,11 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
   const handleWhatsApp = (e: React.MouseEvent) => {
     e.stopPropagation();
     setShowWhatsAppDialog(true);
+  };
+
+  const handleAssign = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onAssign) onAssign();
   };
 
   return (
@@ -146,11 +153,27 @@ export const LeadCard = ({ lead, onClick }: LeadCardProps) => {
           </div>
         </div>
 
-        {lead.consultant && (
-          <div className="text-xs text-muted-foreground">
-            Assigned to: <span className="font-medium">{lead.consultant}</span>
-          </div>
-        )}
+        <div className="flex items-center justify-between text-xs">
+          {lead.consultant ? (
+            <div className="text-muted-foreground">
+              Assigned to: <span className="font-medium">{lead.consultant}</span>
+            </div>
+          ) : (
+            <div className="text-orange-600 dark:text-orange-400 font-medium">
+              Unassigned
+            </div>
+          )}
+          {showAssignButton && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-6 text-xs"
+              onClick={handleAssign}
+            >
+              {lead.consultant ? 'Reassign' : 'Assign'}
+            </Button>
+          )}
+        </div>
 
         <div className="flex gap-2 pt-2 border-t">
           <Button
