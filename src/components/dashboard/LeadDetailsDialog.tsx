@@ -213,6 +213,24 @@ const LeadDetailsDialog = ({ lead, open, onClose, onUpdate }: LeadDetailsDialogP
             />
           </div>
 
+          {formData.notes && (
+            <div className="space-y-2">
+              <Label>Cell Notes (Column K)</Label>
+              <div className="border rounded-lg p-3 bg-blue-50 dark:bg-blue-950/30 border-blue-200 dark:border-blue-800">
+                <p className="text-sm whitespace-pre-wrap">{formData.notes}</p>
+              </div>
+            </div>
+          )}
+
+          {!formData.notes && (
+            <div className="space-y-2">
+              <Label>Cell Notes (Column K)</Label>
+              <div className="border rounded-lg p-3 bg-muted/50 border-dashed">
+                <p className="text-sm text-muted-foreground">No notes found for this lead</p>
+              </div>
+            </div>
+          )}
+
           {formData.remarkHistory && formData.remarkHistory.length > 0 && (
             <div className="space-y-2">
               <Label>Remark History</Label>

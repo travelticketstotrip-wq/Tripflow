@@ -1,9 +1,10 @@
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Phone, Mail, MessageCircle, Calendar, MapPin, Users, Moon } from "lucide-react";
+import { Phone, Mail, MessageCircle, Calendar, MapPin, Users, Moon, CheckCircle, Bell } from "lucide-react";
 import { SheetLead } from "@/lib/googleSheets";
 import { useState } from "react";
+import { useSwipeable } from "react-swipeable";
 import WhatsAppTemplateDialog from "./WhatsAppTemplateDialog";
 
 interface LeadCardProps {
@@ -11,6 +12,8 @@ interface LeadCardProps {
   onClick: () => void;
   onAssign?: () => void;
   showAssignButton?: boolean;
+  onSwipeLeft?: (lead: SheetLead) => void;
+  onSwipeRight?: (lead: SheetLead) => void;
 }
 
 const getCardBackgroundByStatus = (status: string, priority: string) => {
@@ -68,11 +71,41 @@ const getStatusColor = (status: string): string => {
   return 'bg-gray-500';
 };
 
-export const LeadCard = ({ lead, onClick, onAssign, showAssignButton = false }: LeadCardProps) => {
+export const LeadCard = ({ lead, onClick, onAssign, showAssignButton = false, onSwipeLeft, onSwipeRight }: LeadCardProps) => {
   const [showWhatsAppDialog, setShowWhatsAppDialog] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const [isConverted, setIsConverted] = useState(false);
+  const [reminderSet, setReminderSet] = useState(false);
   const priority = lead.priority?.toLowerCase() || 'medium';
   const progress = getStatusProgress(lead.status);
   const cardBg = getCardBackgroundByStatus(lead.status, priority);
+
+  const handlers = useSwipeable({
+    onSwiping: (eventData) => {
+      setSwipeOffset(eventData.deltaX);
+    },
+    onSwipedLeft: () => {
+      if (onSwipeLeft) {
+        setIsConverted(true);
+        onSwipeLeft(lead);
+        setTimeout(() => setIsConverted(false), 2000);
+      }
+      setSwipeOffset(0);
+    },
+    onSwipedRight: () => {
+      if (onSwipeRight) {
+        setReminderSet(true);
+        onSwipeRight(lead);
+        setTimeout(() => setReminderSet(false), 2000);
+      }
+      setSwipeOffset(0);
+    },
+    onSwiped: () => {
+      setSwipeOffset(0);
+    },
+    trackMouse: true,
+    delta: 50,
+  });
 
   const handleCall = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -96,8 +129,40 @@ export const LeadCard = ({ lead, onClick, onAssign, showAssignButton = false }: 
 
   return (
     <>
+      <div 
+        {...handlers}
+        className="relative"
+        style={{
+          transform: `translateX(${swipeOffset}px)`,
+          transition: swipeOffset === 0 ? 'transform 0.3s ease-out' : 'none',
+        }}
+      >
+        {/* Swipe indicators */}
+        {swipeOffset < -50 && (
+          <div className="absolute inset-y-0 right-0 flex items-center justify-center px-4 bg-green-500 text-white rounded-r-lg z-0">
+            <CheckCircle className="h-6 w-6" />
+          </div>
+        )}
+        {swipeOffset > 50 && (
+          <div className="absolute inset-y-0 left-0 flex items-center justify-center px-4 bg-blue-500 text-white rounded-l-lg z-0">
+            <Bell className="h-6 w-6" />
+          </div>
+        )}
+        
+        {/* Status badges */}
+        {isConverted && (
+          <div className="absolute top-2 right-2 z-10 bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium animate-fade-in">
+            ✓ Converted!
+          </div>
+        )}
+        {reminderSet && (
+          <div className="absolute top-2 right-2 z-10 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium animate-fade-in">
+            🔔 Reminder Set!
+          </div>
+        )}
+
       <Card 
-        className={`p-4 cursor-pointer hover:shadow-glow hover:scale-[1.02] transition-all duration-300 ${cardBg} animate-fade-in border-2`}
+        className={`p-4 cursor-pointer hover:shadow-glow hover:scale-[1.02] transition-all duration-300 ${cardBg} animate-fade-in border-2 relative z-10`}
         onClick={onClick}
       >
       <div className="space-y-3">
@@ -206,6 +271,7 @@ export const LeadCard = ({ lead, onClick, onAssign, showAssignButton = false }: 
         </div>
       </div>
     </Card>
+      </div>
     
     {showWhatsAppDialog && (
       <WhatsAppTemplateDialog

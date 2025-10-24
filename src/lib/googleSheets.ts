@@ -32,6 +32,7 @@ export interface SheetLead {
   email: string;
   priority?: string;
   remarkHistory?: string[];
+  notes?: string; // Cell notes from Column K
 }
 
 const SHEETS_API_BASE = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -205,7 +206,30 @@ export class GoogleSheetsService {
       
       const cm = this.config.columnMappings;
       
-      const leads = rows.map((row: any[]) => ({
+      // Fetch cell notes from Column K
+      let notesMap: Record<number, string> = {};
+      try {
+        const notesUrl = this.config.apiKey 
+          ? `${SHEETS_API_BASE}/${this.config.sheetId}?ranges=${encodeURIComponent(worksheetName)}!K2:K10000&fields=sheets.data.rowData.values.note&key=${this.config.apiKey}`
+          : `${SHEETS_API_BASE}/${this.config.sheetId}?ranges=${encodeURIComponent(worksheetName)}!K2:K10000&fields=sheets.data.rowData.values.note`;
+        
+        const notesHeaders = this.config.apiKey ? {} : { 'Authorization': `Bearer ${await this.getAccessToken()}` };
+        const notesResponse = await fetch(notesUrl, { headers: notesHeaders });
+        
+        if (notesResponse.ok) {
+          const notesData = await notesResponse.json();
+          const rowData = notesData.sheets?.[0]?.data?.[0]?.rowData || [];
+          rowData.forEach((row: any, index: number) => {
+            if (row.values?.[0]?.note) {
+              notesMap[index] = row.values[0].note;
+            }
+          });
+        }
+      } catch (notesError) {
+        console.warn('Failed to fetch cell notes:', notesError);
+      }
+      
+      const leads = rows.map((row: any[], rowIndex: number) => ({
         tripId: row[this.columnToIndex(cm.trip_id || 'A')] || '',
         date: row[this.columnToIndex(cm.date || 'B')] || '',
         consultant: row[this.columnToIndex(cm.consultant || 'C')] || '',
@@ -220,6 +244,7 @@ export class GoogleSheetsService {
         mealPlan: row[this.columnToIndex(cm.meal_plan || 'O')] || '',
         phone: row[this.columnToIndex(cm.phone || 'P')] || '',
         email: row[this.columnToIndex(cm.email || 'Q')] || '',
+        notes: notesMap[rowIndex] || '', // Cell notes from Column K
       })).filter((lead: SheetLead) => lead.tripId);
 
       // Sort by date descending (latest first)
@@ -301,14 +326,14 @@ export class GoogleSheetsService {
 
   async updateLead(tripId: string, updates: Partial<SheetLead>): Promise<void> {
     try {
-      console.log('Updating lead:', tripId, updates);
+      console.log('🔄 Updating lead in Google Sheet:', tripId, updates);
       
       // First, find the row number
       const leads = await this.fetchLeads();
       const leadIndex = leads.findIndex(l => l.tripId === tripId);
       
       if (leadIndex === -1) {
-        throw new Error('Lead not found');
+        throw new Error('Lead not found in sheet');
       }
       
       const rowNumber = leadIndex + 2; // +2 because sheets are 1-indexed and row 1 is header
@@ -317,15 +342,19 @@ export class GoogleSheetsService {
       const cm = this.config.columnMappings;
       const token = await this.getAccessToken();
       
-      console.log('Found lead at row:', rowNumber);
+      console.log('✅ Found lead at row:', rowNumber);
+      
+      // Track successful and failed updates
+      const updateResults: Record<string, boolean> = {};
       
       // Update each field individually
       for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined) {
+        if (value !== undefined && key !== 'notes') { // Skip notes as they require different API
           let column = '';
           switch (key) {
             case 'consultant': column = cm.consultant || 'C'; break;
             case 'status': column = cm.status || 'D'; break;
+            case 'travellerName': column = cm.traveller_name || 'E'; break;
             case 'remarks': column = cm.remarks || 'K'; break;
             case 'travelDate': column = cm.travel_date || 'G'; break;
             case 'travelState': column = cm.travel_state || 'H'; break;
@@ -341,29 +370,45 @@ export class GoogleSheetsService {
           const range = `${worksheetName}!${column}${rowNumber}`;
           const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
           
-          console.log(`Updating ${key} at ${range}`);
+          console.log(`📝 Updating ${key} at ${range} with value:`, value);
           
-          const response = await fetch(url, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              values: [[value]],
-            }),
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Failed to update ${key}:`, errorText);
+          try {
+            const response = await fetch(url, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                values: [[value]],
+              }),
+            });
+            
+            if (!response.ok) {
+              const errorText = await response.text();
+              console.error(`❌ Failed to update ${key}:`, errorText);
+              updateResults[key] = false;
+              throw new Error(`Failed to update ${key}: ${errorText}`);
+            } else {
+              console.log(`✅ Successfully updated ${key}`);
+              updateResults[key] = true;
+            }
+          } catch (fetchError) {
+            console.error(`❌ Network error updating ${key}:`, fetchError);
+            updateResults[key] = false;
+            throw fetchError;
           }
         }
       }
       
-      console.log('Lead updated successfully');
+      const failedUpdates = Object.entries(updateResults).filter(([_, success]) => !success);
+      if (failedUpdates.length > 0) {
+        throw new Error(`Some fields failed to update: ${failedUpdates.map(([key]) => key).join(', ')}`);
+      }
+      
+      console.log('✅ All lead updates completed successfully');
     } catch (error) {
-      console.error('Error updating lead:', error);
+      console.error('❌ Error updating lead:', error);
       throw error;
     }
   }

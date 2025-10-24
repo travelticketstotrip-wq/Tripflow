@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { LogOut, Settings } from "lucide-react";
 import AdminDashboard from "@/components/dashboard/AdminDashboard";
 import ConsultantDashboard from "@/components/dashboard/ConsultantDashboard";
+import BottomNavigation from "@/components/BottomNavigation";
 import { authService } from "@/lib/authService";
 import { themeService } from "@/lib/themeService";
 import { Moon, Sun } from "lucide-react";
@@ -34,7 +35,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-subtle">
+    <div className="min-h-screen bg-gradient-subtle pb-20">
       <div className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10 shadow-soft">
         <div className="container mx-auto px-4 py-4">
           <div className="flex items-center justify-between">
@@ -80,6 +81,8 @@ const Dashboard = () => {
       <main className="container mx-auto px-4 py-6">
         {session.user.role === 'admin' ? <AdminDashboard /> : <ConsultantDashboard />}
       </main>
+
+      <BottomNavigation />
     </div>
   );
 };

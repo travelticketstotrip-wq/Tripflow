@@ -122,6 +122,41 @@ const ConsultantDashboard = () => {
     ), [filteredLeads]
   );
 
+  const handleSwipeLeft = async (lead: SheetLead) => {
+    try {
+      const credentials = await secureStorage.getCredentials();
+      if (!credentials) throw new Error('Credentials not found');
+
+      const sheetsService = new GoogleSheetsService({
+        apiKey: credentials.googleApiKey,
+        serviceAccountJson: credentials.googleServiceAccountJson,
+        sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
+        worksheetNames: credentials.worksheetNames,
+        columnMappings: credentials.columnMappings
+      });
+
+      await sheetsService.updateLead(lead.tripId, { status: 'Booked With Us' });
+      toast({
+        title: "Lead Converted!",
+        description: `${lead.travellerName} marked as booked.`,
+      });
+      fetchLeads();
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Failed to convert lead",
+        description: error.message,
+      });
+    }
+  };
+
+  const handleSwipeRight = (lead: SheetLead) => {
+    toast({
+      title: "Reminder Set!",
+      description: `Reminder created for ${lead.travellerName}`,
+    });
+  };
+
   const renderLeadGrid = (leadsToRender: SheetLead[]) => {
     if (loading) {
       return (
@@ -146,7 +181,9 @@ const ConsultantDashboard = () => {
           <LeadCard 
             key={`${lead.tripId}-${index}`} 
             lead={lead} 
-            onClick={() => setSelectedLead(lead)} 
+            onClick={() => setSelectedLead(lead)}
+            onSwipeLeft={handleSwipeLeft}
+            onSwipeRight={handleSwipeRight}
           />
         ))}
       </div>
@@ -201,7 +238,6 @@ const ConsultantDashboard = () => {
 
         <TabsContent value="dashboard" className="space-y-4">
           <DashboardStats leads={leads} />
-          {renderLeadGrid(filteredLeads)}
         </TabsContent>
 
         <TabsContent value="new">
