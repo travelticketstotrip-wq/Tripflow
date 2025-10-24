@@ -52,9 +52,17 @@ const LeadDetailsDialog = ({ lead, open, onClose, onUpdate }: LeadDetailsDialogP
     try {
       setSaving(true);
       
+      console.log('💾 Saving lead changes...');
       const credentials = await secureStorage.getCredentials();
-      if (!credentials) throw new Error('Google Sheets not configured');
+      if (!credentials) {
+        throw new Error('Google Sheets credentials not configured. Please check Settings or localSecrets.ts');
+      }
 
+      if (!credentials.googleServiceAccountJson) {
+        throw new Error('Service Account JSON is required for updating leads. Please configure it in Settings or localSecrets.ts');
+      }
+
+      console.log('✅ Credentials loaded, initializing Google Sheets service...');
       const sheetsService = new GoogleSheetsService({
         apiKey: credentials.googleApiKey,
         serviceAccountJson: credentials.googleServiceAccountJson,
@@ -63,20 +71,25 @@ const LeadDetailsDialog = ({ lead, open, onClose, onUpdate }: LeadDetailsDialogP
         columnMappings: credentials.columnMappings
       });
 
+      console.log('🚀 Calling updateLead...');
       await sheetsService.updateLead(lead.tripId, formData);
+      console.log('✅ updateLead completed');
 
       toast({
-        title: "Lead updated",
+        title: "✅ Lead updated successfully!",
         description: "Changes have been saved to Google Sheets",
+        duration: 3000,
       });
 
       onUpdate();
       onClose();
     } catch (error: any) {
+      console.error('❌ Failed to save lead:', error);
       toast({
         variant: "destructive",
-        title: "Error updating lead",
-        description: error.message,
+        title: "❌ Failed to update lead",
+        description: error.message || "Unknown error occurred. Check console for details.",
+        duration: 5000,
       });
     } finally {
       setSaving(false);

@@ -325,31 +325,43 @@ export class GoogleSheetsService {
   }
 
   async updateLead(tripId: string, updates: Partial<SheetLead>): Promise<void> {
+    console.log('🔄 Starting updateLead for:', tripId);
+    console.log('📦 Updates to apply:', updates);
+    
+    // Verify we have service account credentials
+    if (!this.config.serviceAccountJson) {
+      const errorMsg = 'Service Account JSON is required for updating leads. Please configure it in Settings or localSecrets.ts';
+      console.error('❌', errorMsg);
+      throw new Error(errorMsg);
+    }
+    
     try {
-      console.log('🔄 Updating lead in Google Sheet:', tripId, updates);
+      // Get access token first
+      console.log('🔐 Getting access token...');
+      const token = await this.getAccessToken();
+      console.log('✅ Access token obtained');
       
-      // First, find the row number
+      // Find the row number
+      console.log('🔍 Fetching leads to find row number...');
       const leads = await this.fetchLeads();
       const leadIndex = leads.findIndex(l => l.tripId === tripId);
       
       if (leadIndex === -1) {
-        throw new Error('Lead not found in sheet');
+        throw new Error(`Lead with Trip ID ${tripId} not found in sheet`);
       }
       
       const rowNumber = leadIndex + 2; // +2 because sheets are 1-indexed and row 1 is header
       const worksheetName = this.config.worksheetNames[0] || 'MASTER DATA';
+      console.log(`✅ Found lead at row ${rowNumber} in worksheet "${worksheetName}"`);
       
       const cm = this.config.columnMappings;
-      const token = await this.getAccessToken();
+      const updatePromises: Promise<void>[] = [];
       
-      console.log('✅ Found lead at row:', rowNumber);
+      // Build batch update data
+      const updateData: Array<{ range: string; values: any[][] }> = [];
       
-      // Track successful and failed updates
-      const updateResults: Record<string, boolean> = {};
-      
-      // Update each field individually
       for (const [key, value] of Object.entries(updates)) {
-        if (value !== undefined && key !== 'notes') { // Skip notes as they require different API
+        if (value !== undefined && key !== 'notes' && key !== 'tripId' && key !== 'date') {
           let column = '';
           switch (key) {
             case 'consultant': column = cm.consultant || 'C'; break;
@@ -368,48 +380,60 @@ export class GoogleSheetsService {
           }
           
           const range = `${worksheetName}!${column}${rowNumber}`;
-          const url = `${SHEETS_API_BASE}/${this.config.sheetId}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`;
+          updateData.push({
+            range,
+            values: [[value]]
+          });
           
-          console.log(`📝 Updating ${key} at ${range} with value:`, value);
-          
-          try {
-            const response = await fetch(url, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`,
-              },
-              body: JSON.stringify({
-                values: [[value]],
-              }),
-            });
-            
-            if (!response.ok) {
-              const errorText = await response.text();
-              console.error(`❌ Failed to update ${key}:`, errorText);
-              updateResults[key] = false;
-              throw new Error(`Failed to update ${key}: ${errorText}`);
-            } else {
-              console.log(`✅ Successfully updated ${key}`);
-              updateResults[key] = true;
-            }
-          } catch (fetchError) {
-            console.error(`❌ Network error updating ${key}:`, fetchError);
-            updateResults[key] = false;
-            throw fetchError;
-          }
+          console.log(`📝 Will update ${key} at ${range} with:`, value);
         }
       }
       
-      const failedUpdates = Object.entries(updateResults).filter(([_, success]) => !success);
-      if (failedUpdates.length > 0) {
-        throw new Error(`Some fields failed to update: ${failedUpdates.map(([key]) => key).join(', ')}`);
+      if (updateData.length === 0) {
+        console.warn('⚠️ No valid fields to update');
+        return;
       }
       
-      console.log('✅ All lead updates completed successfully');
-    } catch (error) {
-      console.error('❌ Error updating lead:', error);
-      throw error;
+      // Use batchUpdate for better performance
+      const batchUrl = `${SHEETS_API_BASE}/${this.config.sheetId}/values:batchUpdate`;
+      
+      console.log('🚀 Sending batch update to Google Sheets API...');
+      console.log('📍 URL:', batchUrl);
+      console.log('📦 Updating', updateData.length, 'fields');
+      
+      const response = await fetch(batchUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          valueInputOption: 'USER_ENTERED',
+          data: updateData
+        }),
+      });
+      
+      console.log('📥 Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ Google Sheets API Error Response:', errorText);
+        throw new Error(`Failed to update lead in Google Sheet: ${response.status} ${response.statusText}\n${errorText}`);
+      }
+      
+      const result = await response.json();
+      console.log('✅ Google Sheets API Response:', result);
+      console.log('✅✅✅ Lead successfully updated in Google Sheet!');
+      
+    } catch (error: any) {
+      console.error('❌❌❌ CRITICAL ERROR updating lead:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        tripId,
+        updates
+      });
+      throw new Error(`Failed to update lead in Google Sheet: ${error.message}`);
     }
   }
 }
