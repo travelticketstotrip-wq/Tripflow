@@ -83,10 +83,16 @@ const AdminDashboard = () => {
       }
 
       let data: SheetLead[] = [];
+      // Prefer secure storage, fallback to localStorage for service account JSON
+      let effectiveServiceAccountJson = credentials.googleServiceAccountJson;
+      if (!effectiveServiceAccountJson) {
+        try { effectiveServiceAccountJson = localStorage.getItem('serviceAccountJson') || undefined; } catch {}
+      }
+
       if (credentials.sheets && credentials.sheets.length > 0) {
         const services = credentials.sheets.map((s) => new GoogleSheetsService({
           apiKey: credentials.googleApiKey,
-          serviceAccountJson: credentials.googleServiceAccountJson,
+          serviceAccountJson: effectiveServiceAccountJson,
           sheetId: s.sheetId,
           worksheetNames: s.worksheetNames || credentials.worksheetNames,
           columnMappings: s.columnMappings || credentials.columnMappings,
@@ -96,7 +102,7 @@ const AdminDashboard = () => {
       } else {
         const sheetsService = new GoogleSheetsService({
           apiKey: credentials.googleApiKey,
-          serviceAccountJson: credentials.googleServiceAccountJson,
+          serviceAccountJson: effectiveServiceAccountJson,
           sheetId: credentials.googleSheetUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/)?.[1] || '',
           worksheetNames: credentials.worksheetNames,
           columnMappings: credentials.columnMappings
